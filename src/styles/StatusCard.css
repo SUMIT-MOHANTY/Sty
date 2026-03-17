@@ -1,0 +1,97 @@
+.status-card {
+  border-radius: 6px;
+  padding: 16px;
+  margin: 12px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid transparent;
+  background-color: white;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.status-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.status-card.status-success {
+  border-left-color: #28a745;
+}
+
+.status-card.status-error {
+  border-left-color: #dc3545;
+}
+
+.status-card.status-warning {
+  border-left-color: #ffc107;
+}
+
+.status-card.status-info {
+  border-left-color: #17a2b8;
+}
+
+.status-card.status-pending {
+  border-left-color: #6c757d;
+}
+
+.status-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.status-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.status-card-description {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #555;
+}
+
+.status-card-timestamp {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.status-card-details {
+  margin-top: 12px;
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+}
+
+.status-detail-row {
+  display: flex;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.detail-key {
+  flex: 0 0 30%;
+  font-weight: 500;
+  color: #666;
+}
+
+.detail-value {
+  flex: 0 0 70%;
+}
+
+.status-card-action {
+  display: block;
+  margin-top: 12px;
+  padding: 6px 12px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.status-card-action:hover {
+  background-color: #e9ecef;
+}

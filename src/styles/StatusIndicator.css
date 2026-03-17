@@ -1,0 +1,51 @@
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-indicator.success .status-dot {
+  background-color: #28a745;
+}
+
+.status-indicator.error .status-dot {
+  background-color: #dc3545;
+}
+
+.status-indicator.warning .status-dot {
+  background-color: #ffc107;
+}
+
+.status-indicator.info .status-dot {
+  background-color: #17a2b8;
+}
+
+.status-indicator.pending .status-dot {
+  background-color: #6c757d;
+}
+
+.status-indicator.animated .status-dot {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
