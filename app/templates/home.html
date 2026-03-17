@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Welcome to the Passport Application System</h1>
+    <p class="lead">A secure and efficient way to apply for and manage your passport applications.</p>
+    {% if not current_user.is_authenticated %}
+    <hr class="my-4">
+    <p>Please login to access your personal dashboard and application details.</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('auth.login') }}" role="button">Login Now</a>
+    {% else %}
+    <hr class="my-4">
+    <p>Access your personal dashboard to view your application status.</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('main.dashboard') }}" role="button">Go to Dashboard</a>
+    {% endif %}
+</div>
+{% endblock %}

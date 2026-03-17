@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="jumbotron">
+            <h1 class="display-4">Welcome, {{ current_user.first_name }}!</h1>
+            <p class="lead">This is your passport application dashboard where you can view and manage your application details.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Personal Information</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Name:</strong> {{ current_user.first_name }} {{ current_user.last_name }}</p>
+                <p><strong>Email:</strong> {{ current_user.email }}</p>
+                <p><strong>Account Created:</strong> {{ current_user.date_registered.strftime('%B %d, %Y') }}</p>
+                <p><strong>Last Login:</strong> {{ current_user.last_login.strftime('%B %d, %Y at %H:%M') if current_user.last_login else 'First login' }}</p>
+                <a href="#" class="btn btn-sm btn-primary">Update Personal Information</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Passport Applications</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Your passport application details will be displayed here.</p>
+                <a href="#" class="btn btn-sm btn-primary">View Application Status</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
