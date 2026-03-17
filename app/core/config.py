@@ -5,12 +5,12 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import AnyHttpUrl, BaseSettings, EmailStr, HttpUrl, PostgresDsn, validator
 
 class Settings(BaseSettings):
-    API_V1_STR: str = "/api"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    API_V1_STR: str = "/api/v1"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     # CORS configuration
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = ["http://localhost:5173", "http://localhost:3000"]
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     # PostgreSQL
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "app")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "passport")
     SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v
         return PostgresDsn.build(
-            scheme="postgresql",
+            scheme="postgresql+asyncpg",
             user=values.get("POSTGRES_USER"),
             password=values.get("POSTGRES_PASSWORD"),
             host=values.get("POSTGRES_SERVER"),

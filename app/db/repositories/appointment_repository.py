@@ -1,17 +1,160 @@
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 import uuid
-from sqlalchemy import func, and_, or_
+
+from sqlalchemy import select, func, and_, or_
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from app.models.appointment import Appointment, AppointmentStatus
+from app.db.base import Base
+from app.models.appointment import Appointment, AppointmentSlot, AppointmentStatus
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate
 
 class AppointmentRepository:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, session: AsyncSession):
+        self.session = session
 
-    def create_appointment(self, obj_in: AppointmentCreate, user_id: int) -> Appointment:
+    async def create_appointment_slot(self, slot_data) -> AppointmentSlot:
+        """Create a new appointment slot"""
+        db_slot = AppointmentSlot(
+            location_id=slot_data.location_id,
+            start_time=slot_data.start_time,
+            end_time=slot_data.end_time,
+            max_appointments=slot_data.max_appointments,
+            is_available=True
+        )
+        self.session.add(db_slot)
+        await self.session.commit()
+        await self.session.refresh(db_slot)
+        return db_slot
+
+    async def get_appointment_slots(
+        self,
+        location_id: Optional[UUID] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        available_only: bool = False
+    ) -> List[AppointmentSlot]:
+        """Get appointment slots with optional filtering"""
+        query = select(AppointmentSlot)
+
+        # Apply filters
+        conditions = []
+        if location_id:
+            conditions.append(AppointmentSlot.location_id == location_id)
+        if start_date:
+            conditions.append(AppointmentSlot.start_time >= start_date)
+        if end_date:
+            conditions.append(AppointmentSlot.end_time <= end_date)
+        if available_only:
+            conditions.append(AppointmentSlot.is_available == True)
+
+        if conditions:
+            query = query.where(and_(*conditions))
+
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
+    async def get_slots_by_time_range(
+        self,
+        location_id: UUID,
+        start_time: datetime,
+        end_time: datetime
+    ) -> List[AppointmentSlot]:
+        """Check if slots exist for a given time range and location"""
+        query = select(AppointmentSlot).where(
+            and_(
+                AppointmentSlot.location_id == location_id,
+                or_(
+                    and_(
+                        AppointmentSlot.start_time <= start_time,
+                        AppointmentSlot.end_time > start_time
+                    ),
+                    and_(
+                        AppointmentSlot.start_time < end_time,
+                        AppointmentSlot.end_time >= end_time
+                    ),
+                    and_(
+                        AppointmentSlot.start_time >= start_time,
+                        AppointmentSlot.end_time <= end_time
+                    )
+                )
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
+    async def get_slot_by_id(self, slot_id: UUID) -> Optional[AppointmentSlot]:
+        """Get appointment slot by ID"""
+        query = select(AppointmentSlot).where(AppointmentSlot.id == slot_id)
+        result = await self.session.execute(query)
+        return result.scalars().first()
+
+    async def update_appointment_slot(self, slot_id: UUID, slot_data) -> AppointmentSlot:
+        """Update an appointment slot"""
+        db_slot = await self.get_slot_by_id(slot_id)
+        if not db_slot:
+            return None
+
+        # Update slot attributes
+        db_slot.location_id = slot_data.location_id
+        db_slot.start_time = slot_data.start_time
+        db_slot.end_time = slot_data.end_time
+        db_slot.max_appointments = slot_data.max_appointments
+        db_slot.is_available = slot_data.is_available
+
+        await self.session.commit()
+        await self.session.refresh(db_slot)
+        return db_slot
+
+    async def delete_appointment_slot(self, slot_id: UUID) -> bool:
+        """Delete an appointment slot"""
+        db_slot = await self.get_slot_by_id(slot_id)
+        if not db_slot:
+            return False
+
+        await self.session.delete(db_slot)
+        await self.session.commit()
+        return True
+
+    async def get_appointments_by_slot_id(self, slot_id: UUID) -> List[Appointment]:
+        """Get appointments by slot ID"""
+        query = select(Appointment).where(Appointment.slot_id == slot_id)
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
+    async def get_appointments(
+        self,
+        location_id: Optional[UUID] = None,
+        status: Optional[AppointmentStatus] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        user_id: Optional[UUID] = None
+    ) -> List[Appointment]:
+        """Get appointments with optional filtering"""
+        query = select(Appointment)
+
+        # Apply filters
+        conditions = []
+        if location_id:
+            conditions.append(Appointment.location_id == location_id)
+        if status:
+            conditions.append(Appointment.status == status)
+        if start_date:
+            conditions.append(Appointment.start_time >= start_date)
+        if end_date:
+            conditions.append(Appointment.end_time <= end_date)
+        if user_id:
+            conditions.append(Appointment.user_id == user_id)
+
+        if conditions:
+            query = query.where(and_(*conditions))
+
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
+    async def create_appointment(self, obj_in: AppointmentCreate, user_id: int) -> Appointment:
         """Create a new appointment with security measures"""
         # Create secure ID for safer lookups
         secure_id = str(uuid.uuid4())
@@ -27,54 +170,62 @@ class AppointmentRepository:
         )
 
         # Check for appointment conflicts
-        existing = self.db.query(Appointment).filter(
-            Appointment.location_id == obj_in.location_id,
-            Appointment.appointment_date == obj_in.appointment_date,
-            Appointment.status == AppointmentStatus.SCHEDULED
-        ).first()
+        query = select(Appointment).where(
+            and_(
+                Appointment.location_id == obj_in.location_id,
+                Appointment.appointment_date == obj_in.appointment_date,
+                Appointment.status == AppointmentStatus.SCHEDULED
+            )
+        )
+        result = await self.session.execute(query)
+        existing = result.scalars().first()
 
         if existing:
             raise ValueError("This appointment time is no longer available")
 
-        self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
+        self.session.add(db_obj)
+        await self.session.commit()
+        await self.session.refresh(db_obj)
         return db_obj
 
-    def get_by_id(self, appointment_id: int) -> Optional[Appointment]:
-        return self.db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    async def get_by_id(self, appointment_id: int) -> Optional[Appointment]:
+        query = select(Appointment).where(Appointment.id == appointment_id)
+        result = await self.session.execute(query)
+        return result.scalars().first()
 
-    def get_user_appointments(
+    async def get_user_appointments(
         self,
         user_id: int,
         skip: int = 0,
         limit: int = 100
     ) -> List[Appointment]:
         """Get appointments for a specific user with pagination"""
-        return (
-            self.db.query(Appointment)
-            .filter(Appointment.user_id == user_id)
-            .order_by(Appointment.appointment_date.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        query = select(Appointment).where(
+            Appointment.user_id == user_id
+        ).order_by(
+            Appointment.appointment_date.desc()
+        ).offset(skip).limit(limit)
+        
+        result = await self.session.execute(query)
+        return result.scalars().all()
 
-    def get_application_appointments(
+    async def get_application_appointments(
         self,
         application_id: int,
         user_id: int = None
     ) -> List[Appointment]:
         """Get appointments for a specific application with user check"""
-        query = self.db.query(Appointment).filter(Appointment.application_id == application_id)
+        query = select(Appointment).where(Appointment.application_id == application_id)
 
         # Add user check for non-admins to prevent unauthorized access
         if user_id is not None:
-            query = query.filter(Appointment.user_id == user_id)
+            query = query.where(Appointment.user_id == user_id)
 
-        return query.order_by(Appointment.appointment_date.desc()).all()
+        query = query.order_by(Appointment.appointment_date.desc())
+        result = await self.session.execute(query)
+        return result.scalars().all()
 
-    def update_appointment(
+    async def update_appointment(
         self,
         appointment_id: int,
         user_id: int,
@@ -82,7 +233,7 @@ class AppointmentRepository:
         is_admin: bool = False
     ) -> Optional[Appointment]:
         """Update an appointment with security checks"""
-        db_obj = self.get_by_id(appointment_id)
+        db_obj = await self.get_by_id(appointment_id)
 
         if not db_obj:
             return None
@@ -97,12 +248,16 @@ class AppointmentRepository:
 
         # Check for appointment conflicts on reschedule
         if obj_in.appointment_date and obj_in.appointment_date != db_obj.appointment_date:
-            existing = self.db.query(Appointment).filter(
-                Appointment.location_id == db_obj.location_id,
-                Appointment.appointment_date == obj_in.appointment_date,
-                Appointment.status == AppointmentStatus.SCHEDULED,
-                Appointment.id != appointment_id
-            ).first()
+            query = select(Appointment).where(
+                and_(
+                    Appointment.location_id == db_obj.location_id,
+                    Appointment.appointment_date == obj_in.appointment_date,
+                    Appointment.status == AppointmentStatus.SCHEDULED,
+                    Appointment.id != appointment_id
+                )
+            )
+            result = await self.session.execute(query)
+            existing = result.scalars().first()
 
             if existing:
                 raise ValueError("This appointment time is no longer available")
@@ -116,14 +271,14 @@ class AppointmentRepository:
         db_obj.updated_at = datetime.utcnow()
         db_obj.updated_by = user_id
 
-        self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
+        self.session.add(db_obj)
+        await self.session.commit()
+        await self.session.refresh(db_obj)
         return db_obj
 
-    def delete_appointment(self, appointment_id: int, user_id: int, is_admin: bool = False) -> bool:
+    async def delete_appointment(self, appointment_id: int, user_id: int, is_admin: bool = False) -> bool:
         """Cancel an appointment (soft delete) with security checks"""
-        db_obj = self.get_by_id(appointment_id)
+        db_obj = await self.get_by_id(appointment_id)
 
         if not db_obj:
             return False
@@ -141,6 +296,6 @@ class AppointmentRepository:
         db_obj.updated_at = datetime.utcnow()
         db_obj.updated_by = user_id
 
-        self.db.add(db_obj)
-        self.db.commit()
+        self.session.add(db_obj)
+        await self.session.commit()
         return True

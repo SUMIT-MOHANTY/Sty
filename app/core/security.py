@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
 
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -36,7 +36,7 @@ def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except jwt.PyJWTError:
+    except jwt.JWTError:
         return None
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
