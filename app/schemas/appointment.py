@@ -6,13 +6,17 @@ import re
 
 class AppointmentStatus(str, Enum):
     SCHEDULED = "scheduled"
-    CANCELLED = "cancelled"
     COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    MISSED = "missed"
     RESCHEDULED = "rescheduled"
 
 class AppointmentBase(BaseModel):
+    user_id: int
+    application_id: int
     location_id: int
     appointment_date: datetime
+    notes: Optional[str] = None
 
     @validator("appointment_date")
     def validate_appointment_date(cls, v):
@@ -27,11 +31,12 @@ class AppointmentBase(BaseModel):
         return v
 
 class AppointmentCreate(AppointmentBase):
-    application_id: int
+    pass
 
 class AppointmentUpdate(BaseModel):
     appointment_date: Optional[datetime] = None
     status: Optional[AppointmentStatus] = None
+    notes: Optional[str] = None
     cancellation_reason: Optional[str] = Field(None, max_length=500)
 
     @validator("cancellation_reason")
@@ -47,11 +52,18 @@ class AppointmentUpdate(BaseModel):
 
 class AppointmentInDB(AppointmentBase):
     id: int
-    user_id: int
-    application_id: int
     status: AppointmentStatus
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+class AppointmentResponse(AppointmentBase):
+    id: int
+    status: AppointmentStatus
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True

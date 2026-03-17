@@ -1,34 +1,44 @@
-from app import db
 from datetime import datetime
 from enum import Enum
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum as SQLEnum
+from sqlalchemy.orm import relationship
 
-class ApplicationStatus(Enum):
-    SUBMITTED = "submitted"
-    UNDER_REVIEW = "under_review"
-    ADDITIONAL_INFO_REQUIRED = "additional_info_required"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
+from app.db.base import Base
 
-class PassportApplication(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    application_number = db.Column(db.String(20), unique=True, nullable=False)
-    applicant_name = db.Column(db.String(100), nullable=False)
-    date_of_birth = db.Column(db.Date, nullable=False)
-    address = db.Column(db.Text, nullable=False)
-    contact_number = db.Column(db.String(20), nullable=False)
-    email = db.Column(db.String(100), nullable=False)
-    passport_type = db.Column(db.String(20), nullable=False)
-    status = db.Column(db.String(30), default=ApplicationStatus.SUBMITTED.value)
-    submission_date = db.Column(db.DateTime, default=datetime.utcnow)
-    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    notes = db.Column(db.Text)
+class ApplicationStatus(str, Enum):
+    SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    ADDITIONAL_INFO_REQUIRED = "ADDITIONAL_INFO_REQUIRED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+
+class Application(Base):
+    __tablename__ = "applications"
+
+    application_id = Column(String, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.user_id"), nullable=False)
+    application_number = Column(String(20), unique=True, nullable=False)
+    passport_type = Column(String(20), nullable=False)
+    status = Column(SQLEnum(ApplicationStatus), default=ApplicationStatus.SUBMITTED, nullable=False)
+    admin_notes = Column(Text, nullable=True)
+    assigned_to = Column(String, ForeignKey("users.user_id"), nullable=True)
+    submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
-    admin = db.relationship('User', backref='assigned_applications')
+    user = relationship("User", foreign_keys=[user_id], back_populates="applications")
+    admin = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_applications")
+    documents = relationship("Document", back_populates="application")
+    personal_details = relationship("PersonalDetails", back_populates="application", uselist=False)
+    contact_details = relationship("ContactDetails", back_populates="application", uselist=False)
+    passport_details = relationship("PassportDetails", back_populates="application", uselist=False)
+    appointments = relationship("Appointment", back_populates="application")
 
     def update_status(self, new_status):
         self.status = new_status
-        self.last_updated = datetime.utcnow()
+        self.last_updated_at = datetime.utcnow()
+
+# Alias for backward compatibility
+PassportApplication = Application
